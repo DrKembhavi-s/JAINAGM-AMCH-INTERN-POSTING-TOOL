@@ -893,9 +893,11 @@ if (internsToGenerate.length === 0) {
 alert('ℹ️ All interns already have rotations generated!\n\nTo regenerate, delete their postings using the Edit Postings button.');
 return;
 }
-if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ First 90 days: In-house only\n✓ After 90 days: External allowed\n✓ Respects excluded departments\n✓ Handles partial completions\n✓ Uses "Resume From" date if set\n\nProceed?`)) {
+if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ Until Dec 2025: In-house only\n✓ From Jan 2026: Evenly distributed (in-house + external)\n✓ Respects excluded departments\n✓ Handles partial completions\n✓ Uses "Resume From" date if set\n\nProceed?`)) {
 return;
 }
+
+const JAN_2026 = new Date('2026-01-01');
 
 let generatedCount = 0;
 internsToGenerate.forEach((intern, internIndex) => {
@@ -920,18 +922,41 @@ const partialDepts = intern.partialDepts || {};
 const inHouseDepts = departments.filter(d => d.inHouse && !excludedDepts.includes(d.name));
 const externalDepts = departments.filter(d => !d.inHouse && !excludedDepts.includes(d.name));
 
-// PHASE 1: First 90 days - Only in-house
+// PHASE 1: Until end of December 2025 - Only in-house
+console.log(`Phase 1: In-house only until end of Dec 2025`);
 const shuffledInHouse = shuffleWithOffset([...inHouseDepts], internIndex);
-let phase1Days = 0;
+let phase1Complete = false;
 
 for (let dept of shuffledInHouse) {
-if (phase1Days >= 90) break;
-
-let daysToSchedule = dept.days;
+// Check if this posting would extend into 2026
+const testEndDate = new Date(currentDate);
 const completedDays = partialDepts[dept.name] || 0;
-if (completedDays > 0) {
-daysToSchedule = dept.days - completedDays;
+let daysToSchedule = dept.days - completedDays;
 if (daysToSchedule <= 0) continue;
+
+testEndDate.setDate(testEndDate.getDate() + daysToSchedule - 1);
+
+// If we've reached or passed Jan 2026, stop Phase 1
+if (currentDate >= JAN_2026) {
+phase1Complete = true;
+break;
+}
+
+// If this posting would go into 2026, check if we should schedule it
+if (testEndDate >= JAN_2026) {
+// Calculate days remaining in 2025
+const dec31_2025 = new Date('2025-12-31');
+const daysUntilNewYear = Math.ceil((dec31_2025 - currentDate) / (1000 * 60 * 60 * 24)) + 1;
+
+// Only schedule if we have at least 7 days left in 2025
+if (daysUntilNewYear >= 7) {
+// Schedule only until end of 2025
+daysToSchedule = Math.min(daysToSchedule, daysUntilNewYear);
+} else {
+// Too close to new year, move to Phase 2
+phase1Complete = true;
+break;
+}
 }
 
 const fromDate = new Date(currentDate);
@@ -946,23 +971,46 @@ toDate: toDate.toISOString().split('T')[0],
 days: daysToSchedule
 });
 
-phase1Days += daysToSchedule;
 currentDate.setDate(currentDate.getDate() + daysToSchedule);
 }
 
-// PHASE 2: After 90 days - Remaining in-house + external
-const remainingInHouse = shuffledInHouse.filter(dept => 
-!intern.postings.some(p => p.department === dept.name)
-);
+console.log(`Phase 1 complete. Current date: ${currentDate.toISOString().split('T')[0]}`);
 
+// PHASE 2: From Jan 2026 onwards - Mix in-house and external with even distribution
+console.log(`Phase 2: Even distribution of in-house and external from Jan 2026`);
+
+// Get remaining in-house departments
+const remainingInHouse = shuffledInHouse.filter(dept => {
+const alreadyScheduled = intern.postings.some(p => p.department === dept.name);
+const completedDays = partialDepts[dept.name] || 0;
+const remainingDays = dept.days - completedDays;
+return !alreadyScheduled && remainingDays > 0;
+});
+
+// Interleave in-house and external departments for even distribution
 const shuffledExternal = shuffleWithOffset([...externalDepts], internIndex);
-const phase2Depts = [...remainingInHouse, ...shuffledExternal];
+const phase2Depts = [];
+
+// Create interleaved pattern: in-house, external, in-house, external...
+const maxLength = Math.max(remainingInHouse.length, shuffledExternal.length);
+for (let i = 0; i < maxLength; i++) {
+if (i < remainingInHouse.length) phase2Depts.push(remainingInHouse[i]);
+if (i < shuffledExternal.length) phase2Depts.push(shuffledExternal[i]);
+}
 
 phase2Depts.forEach(dept => {
 let daysToSchedule = dept.days;
 const completedDays = partialDepts[dept.name] || 0;
 if (completedDays > 0) {
 daysToSchedule = dept.days - completedDays;
+if (daysToSchedule <= 0) return;
+}
+
+// Check if this department was partially scheduled in Phase 1
+const existingPosting = intern.postings.find(p => p.department === dept.name);
+if (existingPosting) {
+// Calculate remaining days
+daysToSchedule = dept.days - existingPosting.days - completedDays;
 if (daysToSchedule <= 0) return;
 }
 
@@ -984,14 +1032,14 @@ currentDate.setDate(currentDate.getDate() + daysToSchedule);
 intern.totalDays = intern.postings.reduce((sum, p) => sum + p.days, 0);
 intern.rotationGenerated = true;
 generatedCount++;
-console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days, First posting: ${intern.postings[0]?.fromDate || 'N/A'}`);
+console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days, Ends: ${currentDate.toISOString().split('T')[0]}`);
 });
 
 localStorage.setItem('internData', JSON.stringify(interns));
 interns = JSON.parse(localStorage.getItem('internData') || '[]');
 updateStats();
 renderInterns();
-alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!\n\n📊 Features:\n• Excluded completed departments\n• Handled partial completions\n• Used "Resume From" dates where set\n• First 90 days in-house only\n• All 19 departments covered`);
+alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!\n\n📊 Features:\n• Until Dec 2025: In-house only\n• From Jan 2026: Evenly distributed\n• Excluded completed departments\n• Handled partial completions\n• Used "Resume From" dates where set\n• All 19 departments covered`);
 }
 
 function shuffleWithOffset(array, offset) {
