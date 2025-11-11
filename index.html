@@ -525,7 +525,7 @@ if (interns.some(i => i.regNo === regNo)) {
 errors.push(`Row ${index + 1}: Registration number "${regNo}" already exists`);
 } else {
 interns.push({
-id: Date.now() + Math.random(),
+id: 'intern_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
 name,
 regNo,
 startDate,
@@ -533,7 +533,8 @@ postings: [],
 totalDays: 0,
 rotationGenerated: false,
 excludedDepts: [],
-partialDepts: {}
+partialDepts: {},
+resumeFromDate: null
 });
 added++;
 }
@@ -573,13 +574,14 @@ alert('⚠️ Registration number already exists');
 return;
 }
 interns.push({
-id: Date.now(),
+id: 'intern_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
 name, regNo, startDate,
 postings: [],
 totalDays: 0,
 rotationGenerated: false,
 excludedDepts: [],
-partialDepts: {}
+partialDepts: {},
+resumeFromDate: null
 });
 localStorage.setItem('internData', JSON.stringify(interns));
 document.getElementById('singleInternName').value = '';
@@ -968,6 +970,7 @@ document.getElementById('internList').innerHTML = filtered.map(intern => {
 const progress = (intern.totalDays / 365) * 100;
 const hasConfig = intern.excludedDepts && (intern.excludedDepts.length > 0 || Object.keys(intern.partialDepts || {}).length > 0);
 const hasResumeDate = intern.resumeFromDate;
+const internIdSafe = String(intern.id).replace(/'/g, "\\'");
 return `
 <div class="intern-card">
 <div class="intern-name">${intern.name}</div>
@@ -997,15 +1000,46 @@ ${intern.postings.slice(0, 5).map(p => `
 ${intern.postings.length > 5 ? `<div style="text-align: center; color: #7f8c8d; font-size: 0.9em;">+ ${intern.postings.length - 5} more</div>` : ''}
 </div>
 <div class="action-buttons">
-<button class="btn btn-info" onclick="showDeptConfigModal('${intern.id}')">⚙️ Configure</button>
-<button class="btn btn-warning" onclick="showPostingEditor('${intern.id}')">✏️ Edit Postings</button>
-<button class="btn btn-primary" onclick="generateIndividualChart('${intern.id}')">📊 Chart</button>
-<button class="btn btn-success" onclick="generateCalendar('${intern.id}')">📅 Calendar</button>
-<button class="btn btn-secondary" onclick="showDepartmentLetterModal('${intern.id}')">📝 Letter</button>
-<button class="btn btn-danger" onclick="deleteIntern('${intern.id}')">🗑️ Delete</button>
+<button class="btn btn-info" onclick="handleConfigureClick('${internIdSafe}')">⚙️ Configure</button>
+<button class="btn btn-warning" onclick="handleEditClick('${internIdSafe}')">✏️ Edit Postings</button>
+<button class="btn btn-primary" onclick="handleChartClick('${internIdSafe}')">📊 Chart</button>
+<button class="btn btn-success" onclick="handleCalendarClick('${internIdSafe}')">📅 Calendar</button>
+<button class="btn btn-secondary" onclick="handleLetterClick('${internIdSafe}')">📝 Letter</button>
+<button class="btn btn-danger" onclick="handleDeleteClick('${internIdSafe}')">🗑️ Delete</button>
 </div>
 </div>
 `}).join('');
+}
+
+// Button click handlers
+function handleConfigureClick(internId) {
+console.log('Configure clicked for:', internId);
+showDeptConfigModal(internId);
+}
+
+function handleEditClick(internId) {
+console.log('Edit clicked for:', internId);
+showPostingEditor(internId);
+}
+
+function handleChartClick(internId) {
+console.log('Chart clicked for:', internId);
+generateIndividualChart(internId);
+}
+
+function handleCalendarClick(internId) {
+console.log('Calendar clicked for:', internId);
+generateCalendar(internId);
+}
+
+function handleLetterClick(internId) {
+console.log('Letter clicked for:', internId);
+showDepartmentLetterModal(internId);
+}
+
+function handleDeleteClick(internId) {
+console.log('Delete clicked for:', internId);
+deleteIntern(internId);
 }
 
 function generateIndividualChart(internId) {
