@@ -647,7 +647,13 @@ item.classList.remove('excluded');
 }
 
 function saveConfiguration() {
-if (!currentInternForConfig) return;
+console.log('saveConfiguration called');
+console.log('currentInternForConfig:', currentInternForConfig);
+
+if (!currentInternForConfig) {
+alert('⚠️ Error: No intern selected for configuration');
+return;
+}
 
 const excludedDepts = [];
 const partialDepts = {};
@@ -667,14 +673,42 @@ partialDepts[input.dataset.dept] = days;
 
 const resumeFromDate = document.getElementById('resumeFromDate').value;
 
-currentInternForConfig.excludedDepts = excludedDepts;
-currentInternForConfig.partialDepts = partialDepts;
-currentInternForConfig.resumeFromDate = resumeFromDate || null;
+console.log('Excluded departments:', excludedDepts);
+console.log('Partial departments:', partialDepts);
+console.log('Resume from date:', resumeFromDate);
 
+// Update the intern object in the array
+const internIndex = interns.findIndex(i => {
+const match = i.id === currentInternForConfig.id || 
+              String(i.id) === String(currentInternForConfig.id);
+return match;
+});
+
+console.log('Intern index in array:', internIndex);
+
+if (internIndex === -1) {
+alert('⚠️ Error: Could not find intern in array');
+return;
+}
+
+// Update the intern in the array
+interns[internIndex].excludedDepts = excludedDepts;
+interns[internIndex].partialDepts = partialDepts;
+interns[internIndex].resumeFromDate = resumeFromDate || null;
+
+console.log('Updated intern:', interns[internIndex]);
+
+// Save to localStorage
 localStorage.setItem('internData', JSON.stringify(interns));
+console.log('Saved to localStorage');
+
+// Reload from localStorage
+interns = JSON.parse(localStorage.getItem('internData') || '[]');
+console.log('Reloaded from localStorage');
+
 closeModal('deptConfigModal');
-alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments${resumeFromDate ? '\nResume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') : ''}`);
 renderInterns();
+alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments${resumeFromDate ? '\nResume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') : ''}`);
 }
 
 function showPostingEditor(internId) {
