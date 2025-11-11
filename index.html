@@ -465,6 +465,9 @@ const err = document.getElementById('adminError');
 if (adminCreds[user] && adminCreds[user].password === pass) {
 document.getElementById('adminLoginSection').style.display = 'none';
 document.getElementById('adminSections').style.display = 'block';
+// Reload data from localStorage on login
+interns = JSON.parse(localStorage.getItem('internData') || '[]');
+console.log('Logged in. Interns loaded:', interns.length);
 updateStats();
 renderInterns();
 } else {
