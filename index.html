@@ -671,11 +671,13 @@ partialDepts[input.dataset.dept] = days;
 }
 });
 
-const resumeFromDate = document.getElementById('resumeFromDate').value;
+const resumeDateElement = document.getElementById('resumeFromDate');
+const resumeFromDate = resumeDateElement ? resumeDateElement.value : null;
 
 console.log('Excluded departments:', excludedDepts);
 console.log('Partial departments:', partialDepts);
 console.log('Resume from date:', resumeFromDate);
+console.log('Resume date element found:', !!resumeDateElement);
 
 // Update the intern object in the array
 const internIndex = interns.findIndex(i => {
