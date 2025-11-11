@@ -997,12 +997,12 @@ ${intern.postings.slice(0, 5).map(p => `
 ${intern.postings.length > 5 ? `<div style="text-align: center; color: #7f8c8d; font-size: 0.9em;">+ ${intern.postings.length - 5} more</div>` : ''}
 </div>
 <div class="action-buttons">
-<button class="btn btn-info" onclick="showDeptConfigModal(${intern.id})">⚙️ Configure</button>
-<button class="btn btn-warning" onclick="showPostingEditor(${intern.id})">✏️ Edit Postings</button>
-<button class="btn btn-primary" onclick="generateIndividualChart(${intern.id})">📊 Chart</button>
-<button class="btn btn-success" onclick="generateCalendar(${intern.id})">📅 Calendar</button>
-<button class="btn btn-secondary" onclick="showDepartmentLetterModal(${intern.id})">📝 Letter</button>
-<button class="btn btn-danger" onclick="deleteIntern(${intern.id})">🗑️ Delete</button>
+<button class="btn btn-info" onclick="showDeptConfigModal('${intern.id}')">⚙️ Configure</button>
+<button class="btn btn-warning" onclick="showPostingEditor('${intern.id}')">✏️ Edit Postings</button>
+<button class="btn btn-primary" onclick="generateIndividualChart('${intern.id}')">📊 Chart</button>
+<button class="btn btn-success" onclick="generateCalendar('${intern.id}')">📅 Calendar</button>
+<button class="btn btn-secondary" onclick="showDepartmentLetterModal('${intern.id}')">📝 Letter</button>
+<button class="btn btn-danger" onclick="deleteIntern('${intern.id}')">🗑️ Delete</button>
 </div>
 </div>
 `}).join('');
