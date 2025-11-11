@@ -660,12 +660,15 @@ partialDepts[input.dataset.dept] = days;
 }
 });
 
+const resumeFromDate = document.getElementById('resumeFromDate').value;
+
 currentInternForConfig.excludedDepts = excludedDepts;
 currentInternForConfig.partialDepts = partialDepts;
+currentInternForConfig.resumeFromDate = resumeFromDate || null;
 
 localStorage.setItem('internData', JSON.stringify(interns));
 closeModal('deptConfigModal');
-alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments`);
+alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments${resumeFromDate ? '\nResume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') : ''}`);
 renderInterns();
 }
 
@@ -849,19 +852,23 @@ if (internsToGenerate.length === 0) {
 alert('ℹ️ All interns already have rotations generated!\n\nTo regenerate, delete their postings using the Edit Postings button.');
 return;
 }
-if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ First 90 days: In-house only\n✓ After 90 days: External allowed\n✓ Respects excluded departments\n✓ Handles partial completions\n\nProceed?`)) {
+if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ First 90 days: In-house only\n✓ After 90 days: External allowed\n✓ Respects excluded departments\n✓ Handles partial completions\n✓ Uses "Resume From" date if set\n\nProceed?`)) {
 return;
 }
 
 let generatedCount = 0;
 internsToGenerate.forEach((intern, internIndex) => {
-const startDate = new Date(intern.startDate);
-if (isNaN(startDate.getTime())) {
-alert(`⚠️ Invalid start date for ${intern.name}`);
+// Use resumeFromDate if set, otherwise use startDate
+const effectiveStartDate = intern.resumeFromDate ? new Date(intern.resumeFromDate) : new Date(intern.startDate);
+
+if (isNaN(effectiveStartDate.getTime())) {
+alert(`⚠️ Invalid date for ${intern.name}`);
 return;
 }
 
-let currentDate = new Date(startDate);
+console.log(`Generating for ${intern.name}: Start=${intern.startDate}, Resume=${intern.resumeFromDate || 'N/A'}, Using=${effectiveStartDate.toISOString().split('T')[0]}`);
+
+let currentDate = new Date(effectiveStartDate);
 intern.postings = [];
 
 // Get available departments (not excluded)
@@ -936,13 +943,14 @@ currentDate.setDate(currentDate.getDate() + daysToSchedule);
 intern.totalDays = intern.postings.reduce((sum, p) => sum + p.days, 0);
 intern.rotationGenerated = true;
 generatedCount++;
+console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days, First posting: ${intern.postings[0]?.fromDate || 'N/A'}`);
 });
 
 localStorage.setItem('internData', JSON.stringify(interns));
 interns = JSON.parse(localStorage.getItem('internData') || '[]');
 updateStats();
 renderInterns();
-alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!\n\n📊 Features:\n• Excluded completed departments\n• Handled partial completions\n• First 90 days in-house only\n• All 19 departments covered`);
+alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!\n\n📊 Features:\n• Excluded completed departments\n• Handled partial completions\n• Used "Resume From" dates where set\n• First 90 days in-house only\n• All 19 departments covered`);
 }
 
 function shuffleWithOffset(array, offset) {
@@ -959,11 +967,13 @@ i.name.toLowerCase().includes(search) || i.regNo.toLowerCase().includes(search)
 document.getElementById('internList').innerHTML = filtered.map(intern => {
 const progress = (intern.totalDays / 365) * 100;
 const hasConfig = intern.excludedDepts && (intern.excludedDepts.length > 0 || Object.keys(intern.partialDepts || {}).length > 0);
+const hasResumeDate = intern.resumeFromDate;
 return `
 <div class="intern-card">
 <div class="intern-name">${intern.name}</div>
 <div style="color: #7f8c8d; margin-bottom: 10px;">
 Reg: ${intern.regNo} | Start: ${new Date(intern.startDate).toLocaleDateString('en-GB')}
+${hasResumeDate ? `<br>📅 Resume from: ${new Date(intern.resumeFromDate).toLocaleDateString('en-GB')}` : ''}
 </div>
 ${hasConfig ? '<div style="color: #27ae60; font-size: 0.85em; margin-bottom: 5px;">⚙️ Custom configuration applied</div>' : ''}
 <div class="progress-bar">
