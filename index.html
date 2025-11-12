@@ -435,7 +435,7 @@ const adminCreds = {
 'principal': { password: 'prin2025', role: 'Principal' }
 };
 
-// 19 Departments - IN-HOUSE: 1,2,4,6,7,9,11,13,14,15,16,17 | EXTERNAL: 3,5,8,10,12,18,19
+// 19 Departments - IN-HOUSE: 12 departments | EXTERNAL: 7 departments
 const departments = [
 { name: 'KAYACHIKITSA', code: 'KC', days: 45, inHouse: true },
 { name: 'SHALYA TANTRA', code: 'ST', days: 30, inHouse: true },
@@ -667,7 +667,6 @@ return;
 const excludedDepts = [];
 const partialDepts = {};
 
-// Collect excluded departments (fully completed)
 document.querySelectorAll('.dept-exclude-cb').forEach(cb => {
 if (cb.checked) {
 excludedDepts.push(cb.dataset.dept);
@@ -675,22 +674,18 @@ console.log('Excluded department:', cb.dataset.dept);
 }
 });
 
-// Collect partial completions (ONLY for non-excluded departments)
 document.querySelectorAll('.dept-partial-input').forEach(input => {
 const days = parseInt(input.value) || 0;
 const deptName = input.dataset.dept;
         
-// Only count partial days if department is NOT excluded
 if (days > 0 && !excludedDepts.includes(deptName)) {
 partialDepts[deptName] = days;
 console.log('Partial department:', deptName, '=', days, 'days');
 }
 });
 
-// Calculate total completed days
 let totalCompletedDays = 0;
 
-// Add days from fully excluded departments
 excludedDepts.forEach(deptName => {
 const dept = departments.find(d => d.name === deptName);
 if (dept) {
@@ -699,7 +694,6 @@ totalCompletedDays += dept.days;
 }
 });
 
-// Add days from partially completed departments
 Object.keys(partialDepts).forEach(deptName => {
 console.log(`Adding ${partialDepts[deptName]} days from partial ${deptName}`);
 totalCompletedDays += partialDepts[deptName];
@@ -707,7 +701,6 @@ totalCompletedDays += partialDepts[deptName];
 
 console.log('Total completed days calculated:', totalCompletedDays);
 
-// Calculate resume date = start date + completed days
 const startDate = new Date(currentInternForConfig.startDate);
 const calculatedResumeDate = new Date(startDate);
 calculatedResumeDate.setDate(calculatedResumeDate.getDate() + totalCompletedDays);
@@ -715,7 +708,6 @@ calculatedResumeDate.setDate(calculatedResumeDate.getDate() + totalCompletedDays
 const resumeFromDate = calculatedResumeDate.toISOString().split('T')[0];
 console.log('Auto-calculated resume date:', resumeFromDate);
 
-// Update the intern object
 const internIndex = interns.findIndex(i => i.id === currentInternForConfig.id);
     
 if (internIndex === -1) {
@@ -723,13 +715,11 @@ alert('⚠️ Error: Could not find intern in array');
 return;
 }
 
-// Update the intern
 interns[internIndex].excludedDepts = excludedDepts;
 interns[internIndex].partialDepts = partialDepts;
 interns[internIndex].resumeFromDate = resumeFromDate;
 interns[internIndex].completedDays = totalCompletedDays;
 
-// Save to localStorage
 localStorage.setItem('internData', JSON.stringify(interns));
 interns = JSON.parse(localStorage.getItem('internData') || '[]');
 
@@ -921,6 +911,16 @@ renderInterns();
 alert('✅ All postings saved!');
 }
 
+// NEW: Proper Fisher-Yates shuffle for TRUE randomization
+function shuffleArray(array) {
+const shuffled = [...array];
+for (let i = shuffled.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+}
+return shuffled;
+}
+
 function generateAllRotations() {
 if (interns.length === 0) {
 alert('⚠️ Please add interns first');
@@ -934,7 +934,7 @@ alert('ℹ️ All interns already have rotations generated!\n\nTo regenerate, de
 return;
 }
 
-if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ Until Dec 2025: In-house only\n✓ From Jan 2026: Evenly distributed (in-house + external)\n✓ Respects excluded departments\n✓ Handles partial completions\n✓ Uses "Resume From" date if set\n\nProceed?`)) {
+if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ Each intern starts in a DIFFERENT department\n✓ Until Dec 2025: In-house only (randomized)\n✓ From Jan 2026: External departments added\n✓ Respects excluded departments\n✓ Handles partial completions\n✓ Uses "Resume From" date if set\n\nProceed?`)) {
 return;
 }
 
@@ -942,7 +942,6 @@ const JAN_2026 = new Date('2026-01-01');
 let generatedCount = 0;
 
 internsToGenerate.forEach((intern, internIndex) => {
-// Use resumeFromDate if set, otherwise use startDate
 const effectiveStartDate = intern.resumeFromDate ? 
 new Date(intern.resumeFromDate) : 
 new Date(intern.startDate);
@@ -952,52 +951,50 @@ alert(`⚠️ Invalid date for ${intern.name}`);
 return;
 }
 
-console.log(`Generating for ${intern.name}: Start=${intern.startDate}, Resume=${intern.resumeFromDate || 'N/A'}, Using=${effectiveStartDate.toISOString().split('T')[0]}`);
+console.log(`\n=== Generating for ${intern.name} (Intern #${internIndex + 1}) ===`);
+console.log(`Start: ${intern.startDate}, Resume: ${intern.resumeFromDate || 'N/A'}, Using: ${effectiveStartDate.toISOString().split('T')[0]}`);
 
 let currentDate = new Date(effectiveStartDate);
 intern.postings = [];
 
 const excludedDepts = intern.excludedDepts || [];
 const partialDepts = intern.partialDepts || {};
-
-// Calculate how many days are already completed
 const completedDays = intern.completedDays || 0;
 const remainingDays = 365 - completedDays;
         
 console.log(`Completed: ${completedDays} days, Remaining: ${remainingDays} days`);
 
-// Filter available departments
-const inHouseDepts = departments.filter(d => {
+// Filter available in-house departments
+const availableInHouse = departments.filter(d => {
 if (!d.inHouse) return false;
 if (excludedDepts.includes(d.name)) return false;
-            
-// Check if partially completed
 const partialDays = partialDepts[d.name] || 0;
 const remainingDeptDays = d.days - partialDays;
-            
 return remainingDeptDays > 0;
 });
 
-const externalDepts = departments.filter(d => {
+// Filter available external departments
+const availableExternal = departments.filter(d => {
 if (d.inHouse) return false;
 if (excludedDepts.includes(d.name)) return false;
-            
 const partialDays = partialDepts[d.name] || 0;
 const remainingDeptDays = d.days - partialDays;
-            
 return remainingDeptDays > 0;
 });
 
-console.log(`Available: ${inHouseDepts.length} in-house, ${externalDepts.length} external`);
+console.log(`Available: ${availableInHouse.length} in-house, ${availableExternal.length} external`);
 
-// PHASE 1: Until end of December 2025 - Only in-house
-const shuffledInHouse = shuffleWithOffset([...inHouseDepts], internIndex);
+// PHASE 1: Until end of December 2025 - RANDOMIZED in-house departments
+// Use TRUE randomization with Fisher-Yates shuffle
+const randomizedInHouse = shuffleArray(availableInHouse);
         
-for (let dept of shuffledInHouse) {
+console.log(`Phase 1 order for ${intern.name}:`, randomizedInHouse.map(d => d.code).join(' → '));
+
+for (let dept of randomizedInHouse) {
 if (currentDate >= JAN_2026) break;
 
-const completedDays = partialDepts[dept.name] || 0;
-let daysToSchedule = dept.days - completedDays;
+const completedDaysInDept = partialDepts[dept.name] || 0;
+let daysToSchedule = dept.days - completedDaysInDept;
 
 if (daysToSchedule <= 0) continue;
 
@@ -1006,7 +1003,6 @@ const testEndDate = new Date(currentDate);
 testEndDate.setDate(testEndDate.getDate() + daysToSchedule - 1);
 
 if (testEndDate >= JAN_2026) {
-// Calculate days remaining in 2025
 const dec31_2025 = new Date('2025-12-31');
 const daysUntilNewYear = Math.ceil((dec31_2025 - currentDate) / (1000 * 60 * 60 * 24)) + 1;
 
@@ -1029,36 +1025,42 @@ toDate: toDate.toISOString().split('T')[0],
 days: daysToSchedule
 });
 
+console.log(`  Posted to ${dept.code}: ${daysToSchedule} days (${fromDate.toISOString().split('T')[0]} to ${toDate.toISOString().split('T')[0]})`);
+
 currentDate.setDate(currentDate.getDate() + daysToSchedule);
 }
 
-// PHASE 2: From Jan 2026 onwards - Mix in-house and external
-const remainingInHouse = shuffledInHouse.filter(dept => {
+console.log(`Phase 1 complete. Current date: ${currentDate.toISOString().split('T')[0]}`);
+
+// PHASE 2: From Jan 2026 onwards - Add external departments
+const remainingInHouse = randomizedInHouse.filter(dept => {
 const alreadyScheduled = intern.postings.some(p => p.department === dept.name);
-const completedDays = partialDepts[dept.name] || 0;
+const completedDaysInDept = partialDepts[dept.name] || 0;
 const scheduledDays = alreadyScheduled ? 
 intern.postings.find(p => p.department === dept.name).days : 0;
-const remainingDays = dept.days - completedDays - scheduledDays;
-            
+const remainingDays = dept.days - completedDaysInDept - scheduledDays;
 return remainingDays > 0;
 });
 
-const shuffledExternal = shuffleWithOffset([...externalDepts], internIndex);
+// Randomize external departments too
+const randomizedExternal = shuffleArray(availableExternal);
 const phase2Depts = [];
 
-// Interleave in-house and external
-const maxLength = Math.max(remainingInHouse.length, shuffledExternal.length);
+// Interleave remaining in-house and external departments
+const maxLength = Math.max(remainingInHouse.length, randomizedExternal.length);
 for (let i = 0; i < maxLength; i++) {
 if (i < remainingInHouse.length) phase2Depts.push(remainingInHouse[i]);
-if (i < shuffledExternal.length) phase2Depts.push(shuffledExternal[i]);
+if (i < randomizedExternal.length) phase2Depts.push(randomizedExternal[i]);
 }
 
+console.log(`Phase 2 order:`, phase2Depts.map(d => d.code).join(' → '));
+
 phase2Depts.forEach(dept => {
-const completedDays = partialDepts[dept.name] || 0;
+const completedDaysInDept = partialDepts[dept.name] || 0;
 const existingPosting = intern.postings.find(p => p.department === dept.name);
 const scheduledDays = existingPosting ? existingPosting.days : 0;
             
-let daysToSchedule = dept.days - completedDays - scheduledDays;
+let daysToSchedule = dept.days - completedDaysInDept - scheduledDays;
 
 if (daysToSchedule <= 0) return;
 
@@ -1074,6 +1076,8 @@ toDate: toDate.toISOString().split('T')[0],
 days: daysToSchedule
 });
 
+console.log(`  Posted to ${dept.code}: ${daysToSchedule} days (${fromDate.toISOString().split('T')[0]} to ${toDate.toISOString().split('T')[0]})`);
+
 currentDate.setDate(currentDate.getDate() + daysToSchedule);
 });
 
@@ -1081,7 +1085,8 @@ intern.totalDays = intern.postings.reduce((sum, p) => sum + p.days, 0);
 intern.rotationGenerated = true;
 generatedCount++;
 
-console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days total`);
+console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days total, Ends: ${currentDate.toISOString().split('T')[0]}`);
+console.log(`First 3 departments: ${intern.postings.slice(0, 3).map(p => departments.find(d => d.name === p.department).code).join(' → ')}`);
 });
 
 localStorage.setItem('internData', JSON.stringify(interns));
@@ -1093,18 +1098,15 @@ renderInterns();
 alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!
 
 📊 Features:
+• Each intern starts in a DIFFERENT department
+• TRULY randomized department order
 • Until Dec 2025: In-house only
-• From Jan 2026: Evenly distributed
+• From Jan 2026: External departments added
 • Excluded completed departments
 • Handled partial completions
-• Used "Resume From" dates where set
-• All 19 departments covered`);
-}
+• All 19 departments covered
 
-function shuffleWithOffset(array, offset) {
-const result = [...array];
-const rotate = offset % array.length;
-return [...result.slice(rotate), ...result.slice(0, rotate)];
+Check console (F12) to see each intern's unique rotation order!`);
 }
 
 function renderInterns() {
@@ -1160,7 +1162,6 @@ ${intern.postings.length > 5 ? `<div style="text-align: center; color: #7f8c8d; 
 `}).join('');
 }
 
-// Button click handlers
 function handleConfigureClick(internId) {
 console.log('Configure clicked for:', internId);
 showDeptConfigModal(internId);
@@ -1574,7 +1575,7 @@ function exportAllData() {
 const data = {
 interns,
 exported: new Date().toISOString(),
-version: '3.1',
+version: '3.2',
 college: 'JAIN AGM AYURVEDIC MEDICAL COLLEGE & HOSPITAL, VARUR'
 };
 
@@ -1652,11 +1653,12 @@ console.log(`  Resume Date: ${intern.resumeFromDate || 'N/A'}`);
 console.log(`  Completed Days: ${intern.completedDays || 0}`);
 console.log(`  Postings: ${intern.postings.length}`);
 console.log(`  Total Days: ${intern.totalDays}`);
+console.log(`  First 3 Depts: ${intern.postings.slice(0, 3).map(p => departments.find(d => d.name === p.department)?.code || 'N/A').join(' → ')}`);
 console.log(`  Excluded: ${intern.excludedDepts ? intern.excludedDepts.length : 0}`);
 console.log(`  Partial: ${intern.partialDepts ? Object.keys(intern.partialDepts).length : 0}`);
 });
 
-alert(`Debug info logged to console (Press F12)\n\nSummary:\n• Total Interns: ${interns.length}\n• Departments: ${departments.length}\n• In-house: ${departments.filter(d => d.inHouse).length}\n• External: ${departments.filter(d => !d.inHouse).length}`);
+alert(`Debug info logged to console (Press F12)\n\nSummary:\n• Total Interns: ${interns.length}\n• Departments: ${departments.length}\n• In-house: ${departments.filter(d => d.inHouse).length}\n• External: ${departments.filter(d => !d.inHouse).length}\n\nCheck console for each intern's unique rotation order!`);
 }
 
 function closeModal(id) {
