@@ -667,9 +667,13 @@ console.log('Excluded department:', cb.dataset.dept);
 
 document.querySelectorAll('.dept-partial-input').forEach(input => {
 const days = parseInt(input.value) || 0;
-if (days > 0) {
-partialDepts[input.dataset.dept] = days;
-console.log('Partial department:', input.dataset.dept, '=', days, 'days');
+const deptName = input.dataset.dept;
+// Only count partial days if department is NOT excluded
+if (days > 0 && !excludedDepts.includes(deptName)) {
+partialDepts[deptName] = days;
+console.log('Partial department:', deptName, '=', days, 'days');
+} else if (days > 0 && excludedDepts.includes(deptName)) {
+console.log('Ignoring partial days for', deptName, 'because it is excluded');
 }
 });
 
@@ -689,7 +693,7 @@ totalCompletedDays += dept.days;
 }
 });
 
-// Add days from partially completed departments
+// Add days from partially completed departments (only if not excluded)
 Object.keys(partialDepts).forEach(deptName => {
 console.log(`Adding ${partialDepts[deptName]} days from partial ${deptName}`);
 totalCompletedDays += partialDepts[deptName];
