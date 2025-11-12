@@ -661,6 +661,7 @@ const partialDepts = {};
 document.querySelectorAll('.dept-exclude-cb').forEach(cb => {
 if (cb.checked) {
 excludedDepts.push(cb.dataset.dept);
+console.log('Excluded department:', cb.dataset.dept);
 }
 });
 
@@ -668,6 +669,7 @@ document.querySelectorAll('.dept-partial-input').forEach(input => {
 const days = parseInt(input.value) || 0;
 if (days > 0) {
 partialDepts[input.dataset.dept] = days;
+console.log('Partial department:', input.dataset.dept, '=', days, 'days');
 }
 });
 
@@ -682,26 +684,33 @@ let totalCompletedDays = 0;
 excludedDepts.forEach(deptName => {
 const dept = departments.find(d => d.name === deptName);
 if (dept) {
+console.log(`Adding ${dept.days} days from excluded ${deptName}`);
 totalCompletedDays += dept.days;
 }
 });
 
 // Add days from partially completed departments
 Object.keys(partialDepts).forEach(deptName => {
+console.log(`Adding ${partialDepts[deptName]} days from partial ${deptName}`);
 totalCompletedDays += partialDepts[deptName];
 });
 
-console.log('Total completed days:', totalCompletedDays);
+console.log('Total completed days calculated:', totalCompletedDays);
+console.log('Start date:', currentInternForConfig.startDate);
 
 // Calculate resume date = start date + completed days
 const startDate = new Date(currentInternForConfig.startDate);
+console.log('Start date object:', startDate);
+console.log('Start date ISO:', startDate.toISOString());
+
 const calculatedResumeDate = new Date(startDate);
 calculatedResumeDate.setDate(calculatedResumeDate.getDate() + totalCompletedDays);
+console.log('Calculated resume date:', calculatedResumeDate.toISOString());
 
 // Use calculated date if no manual date is set, otherwise use manual date
 if (!resumeFromDate) {
 resumeFromDate = calculatedResumeDate.toISOString().split('T')[0];
-console.log('Auto-calculated resume date:', resumeFromDate);
+console.log('Auto-calculated resume date (final):', resumeFromDate);
 } else {
 console.log('Using manually set resume date:', resumeFromDate);
 }
@@ -710,7 +719,6 @@ console.log('Using manually set resume date:', resumeFromDate);
 console.log('Excluded departments:', excludedDepts);
 console.log('Partial departments:', partialDepts);
 console.log('Final resume from date:', resumeFromDate);
-console.log('Resume date element found:', !!resumeDateElement);
 
 // Update the intern object in the array
 const internIndex = interns.findIndex(i => {
@@ -749,7 +757,7 @@ const dept = departments.find(d => d.name === deptName);
 return sum + (dept ? dept.days : 0);
 }, 0) + Object.values(partialDepts).reduce((sum, days) => sum + days, 0);
 
-alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments\nTotal completed days: ${totalDays}\n${resumeFromDate ? 'Resume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') + ' (auto-calculated)' : ''}`);
+alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments\nTotal completed days: ${totalDays}\n${resumeFromDate ? 'Resume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') + ' (auto-calculated)\nCalculation: ' + currentInternForConfig.startDate + ' + ' + totalDays + ' days' : ''}`);
 }
 
 function showPostingEditor(internId) {
