@@ -228,8 +228,8 @@ align-items: center;
 <h1>JAIN AGM AYURVEDIC MEDICAL COLLEGE & HOSPITAL, VARUR</h1>
 <p>SMART INTERN ROTATION & POSTINGS MANAGEMENT SYSTEM</p>
 </div>
-<div class="main-content">
 
+<div class="main-content">
 <div id="adminLoginSection" class="login-section">
 <h3 style="color: #3498db; margin-bottom: 15px;">🔐 Admin Login</h3>
 <div class="login-form">
@@ -462,10 +462,10 @@ function adminLogin() {
 const user = document.getElementById('adminUsername').value.trim();
 const pass = document.getElementById('adminPassword').value.trim();
 const err = document.getElementById('adminError');
+
 if (adminCreds[user] && adminCreds[user].password === pass) {
 document.getElementById('adminLoginSection').style.display = 'none';
 document.getElementById('adminSections').style.display = 'block';
-// Reload data from localStorage on login
 interns = JSON.parse(localStorage.getItem('internData') || '[]');
 console.log('Logged in. Interns loaded:', interns.length);
 updateStats();
@@ -491,6 +491,7 @@ function addBulkRows(count) {
 const container = document.getElementById('bulkEntryContainer');
 const currentRows = container.children.length;
 const today = new Date().toISOString().split('T')[0];
+
 for (let i = 0; i < count && currentRows + i < 60; i++) {
 const row = document.createElement('div');
 row.className = 'bulk-entry-row';
@@ -513,6 +514,7 @@ function saveBulkInterns() {
 const rows = document.querySelectorAll('.bulk-entry-row');
 let added = 0;
 const errors = [];
+
 rows.forEach((row, index) => {
 const name = row.querySelector('.bulk-name').value.trim();
 const regNo = row.querySelector('.bulk-regno').value.trim();
@@ -524,6 +526,7 @@ if (isNaN(dateTest.getTime())) {
 errors.push(`Row ${index + 1}: Invalid date format`);
 return;
 }
+
 if (interns.some(i => i.regNo === regNo)) {
 errors.push(`Row ${index + 1}: Registration number "${regNo}" already exists`);
 } else {
@@ -537,7 +540,8 @@ totalDays: 0,
 rotationGenerated: false,
 excludedDepts: [],
 partialDepts: {},
-resumeFromDate: null
+resumeFromDate: null,
+completedDays: 0
 });
 added++;
 }
@@ -568,14 +572,17 @@ function saveSingleIntern() {
 const name = document.getElementById('singleInternName').value.trim();
 const regNo = document.getElementById('singleInternRegNo').value.trim();
 const startDate = document.getElementById('singleInternStartDate').value;
+
 if (!name || !regNo || !startDate) {
 alert('⚠️ Please fill all fields');
 return;
 }
+
 if (interns.some(i => i.regNo === regNo)) {
 alert('⚠️ Registration number already exists');
 return;
 }
+
 interns.push({
 id: 'intern_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
 name, regNo, startDate,
@@ -584,8 +591,10 @@ totalDays: 0,
 rotationGenerated: false,
 excludedDepts: [],
 partialDepts: {},
-resumeFromDate: null
+resumeFromDate: null,
+completedDays: 0
 });
+
 localStorage.setItem('internData', JSON.stringify(interns));
 document.getElementById('singleInternName').value = '';
 document.getElementById('singleInternRegNo').value = '';
@@ -624,7 +633,7 @@ item.innerHTML = `
 <strong>${dept.code} - ${dept.name}</strong>
 <div style="font-size: 0.85em; color: #7f8c8d;">${dept.days} days total ${dept.inHouse ? '(In-house)' : '(External)'}</div>
 <div style="margin-top: 5px;">
-<label style="font-size: 0.85em;">Days completed: 
+<label style="font-size: 0.85em;">Days completed:
 <input type="number" class="dept-partial-input" data-dept="${dept.name}" value="${partialDays}" min="0" max="${dept.days}" style="width: 60px; padding: 3px;">
 / ${dept.days}</label>
 </div>
@@ -649,7 +658,7 @@ item.classList.remove('excluded');
 function saveConfiguration() {
 console.log('saveConfiguration called');
 console.log('currentInternForConfig:', currentInternForConfig);
-
+    
 if (!currentInternForConfig) {
 alert('⚠️ Error: No intern selected for configuration');
 return;
@@ -658,6 +667,7 @@ return;
 const excludedDepts = [];
 const partialDepts = {};
 
+// Collect excluded departments (fully completed)
 document.querySelectorAll('.dept-exclude-cb').forEach(cb => {
 if (cb.checked) {
 excludedDepts.push(cb.dataset.dept);
@@ -665,23 +675,19 @@ console.log('Excluded department:', cb.dataset.dept);
 }
 });
 
+// Collect partial completions (ONLY for non-excluded departments)
 document.querySelectorAll('.dept-partial-input').forEach(input => {
 const days = parseInt(input.value) || 0;
 const deptName = input.dataset.dept;
+        
 // Only count partial days if department is NOT excluded
 if (days > 0 && !excludedDepts.includes(deptName)) {
 partialDepts[deptName] = days;
 console.log('Partial department:', deptName, '=', days, 'days');
-} else if (days > 0 && excludedDepts.includes(deptName)) {
-console.log('Ignoring partial days for', deptName, 'because it is excluded');
 }
 });
 
-const resumeDateElement = document.getElementById('resumeFromDate');
-let resumeFromDate = resumeDateElement ? resumeDateElement.value : null;
-
-// OPTION A: Auto-calculate resume date based on excluded departments
-if (excludedDepts.length > 0 || Object.keys(partialDepts).length > 0) {
+// Calculate total completed days
 let totalCompletedDays = 0;
 
 // Add days from fully excluded departments
@@ -693,75 +699,52 @@ totalCompletedDays += dept.days;
 }
 });
 
-// Add days from partially completed departments (only if not excluded)
+// Add days from partially completed departments
 Object.keys(partialDepts).forEach(deptName => {
 console.log(`Adding ${partialDepts[deptName]} days from partial ${deptName}`);
 totalCompletedDays += partialDepts[deptName];
 });
 
 console.log('Total completed days calculated:', totalCompletedDays);
-console.log('Start date:', currentInternForConfig.startDate);
 
 // Calculate resume date = start date + completed days
 const startDate = new Date(currentInternForConfig.startDate);
-console.log('Start date object:', startDate);
-console.log('Start date ISO:', startDate.toISOString());
-
 const calculatedResumeDate = new Date(startDate);
 calculatedResumeDate.setDate(calculatedResumeDate.getDate() + totalCompletedDays);
-console.log('Calculated resume date:', calculatedResumeDate.toISOString());
+    
+const resumeFromDate = calculatedResumeDate.toISOString().split('T')[0];
+console.log('Auto-calculated resume date:', resumeFromDate);
 
-// Use calculated date if no manual date is set, otherwise use manual date
-if (!resumeFromDate) {
-resumeFromDate = calculatedResumeDate.toISOString().split('T')[0];
-console.log('Auto-calculated resume date (final):', resumeFromDate);
-} else {
-console.log('Using manually set resume date:', resumeFromDate);
-}
-}
-
-console.log('Excluded departments:', excludedDepts);
-console.log('Partial departments:', partialDepts);
-console.log('Final resume from date:', resumeFromDate);
-
-// Update the intern object in the array
-const internIndex = interns.findIndex(i => {
-const match = i.id === currentInternForConfig.id || 
-              String(i.id) === String(currentInternForConfig.id);
-return match;
-});
-
-console.log('Intern index in array:', internIndex);
-
+// Update the intern object
+const internIndex = interns.findIndex(i => i.id === currentInternForConfig.id);
+    
 if (internIndex === -1) {
 alert('⚠️ Error: Could not find intern in array');
 return;
 }
 
-// Update the intern in the array
+// Update the intern
 interns[internIndex].excludedDepts = excludedDepts;
 interns[internIndex].partialDepts = partialDepts;
-interns[internIndex].resumeFromDate = resumeFromDate || null;
-
-console.log('Updated intern:', interns[internIndex]);
+interns[internIndex].resumeFromDate = resumeFromDate;
+interns[internIndex].completedDays = totalCompletedDays;
 
 // Save to localStorage
 localStorage.setItem('internData', JSON.stringify(interns));
-console.log('Saved to localStorage');
-
-// Reload from localStorage
 interns = JSON.parse(localStorage.getItem('internData') || '[]');
-console.log('Reloaded from localStorage');
 
 closeModal('deptConfigModal');
 renderInterns();
 
-const totalDays = excludedDepts.reduce((sum, deptName) => {
-const dept = departments.find(d => d.name === deptName);
-return sum + (dept ? dept.days : 0);
-}, 0) + Object.values(partialDepts).reduce((sum, days) => sum + days, 0);
+alert(`✅ Configuration saved!
 
-alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments\nTotal completed days: ${totalDays}\n${resumeFromDate ? 'Resume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') + ' (auto-calculated)\nCalculation: ' + currentInternForConfig.startDate + ' + ' + totalDays + ' days' : ''}`);
+Excluded departments: ${excludedDepts.length}
+Partial completions: ${Object.keys(partialDepts).length}
+Total completed days: ${totalCompletedDays}
+Remaining days: ${365 - totalCompletedDays}
+
+Resume from: ${new Date(resumeFromDate).toLocaleDateString('en-GB')}
+Calculation: ${currentInternForConfig.startDate} + ${totalCompletedDays} days`);
 }
 
 function showPostingEditor(internId) {
@@ -834,16 +817,17 @@ select.innerHTML += `<option value="${dept.name}">${dept.code} - ${dept.name} ($
 document.getElementById('postingFromDate').value = '';
 document.getElementById('postingToDate').value = '';
 document.getElementById('postingDays').value = '';
-
 document.getElementById('addPostingModal').style.display = 'block';
 }
 
 function editPosting(index) {
 if (!currentInternForEditor) return;
+
 currentEditingPostingIndex = index;
 const posting = currentInternForEditor.postings[index];
 
 document.getElementById('addPostingTitle').textContent = 'Edit Posting';
+
 const select = document.getElementById('postingDepartment');
 select.innerHTML = '<option value="">Select Department</option>';
 departments.forEach(dept => {
@@ -854,12 +838,12 @@ select.innerHTML += `<option value="${dept.name}" ${selected}>${dept.code} - ${d
 document.getElementById('postingFromDate').value = posting.fromDate;
 document.getElementById('postingToDate').value = posting.toDate;
 document.getElementById('postingDays').value = posting.days;
-
 document.getElementById('addPostingModal').style.display = 'block';
 }
 
 function deletePosting(index) {
 if (!currentInternForEditor) return;
+
 if (confirm('Delete this posting?')) {
 currentInternForEditor.postings.splice(index, 1);
 currentInternForEditor.totalDays = currentInternForEditor.postings.reduce((sum, p) => sum + p.days, 0);
@@ -911,6 +895,7 @@ document.getElementById('postingToDate').addEventListener('change', calculateDay
 function calculateDays() {
 const fromDate = document.getElementById('postingFromDate').value;
 const toDate = document.getElementById('postingToDate').value;
+
 if (fromDate && toDate) {
 const from = new Date(fromDate);
 const to = new Date(toDate);
@@ -921,6 +906,7 @@ document.getElementById('postingDays').value = days > 0 ? days : 0;
 
 function sortPostingsByDate() {
 if (!currentInternForEditor) return;
+
 currentInternForEditor.postings.sort((a, b) => new Date(a.fromDate) - new Date(b.fromDate));
 renderPostingEditor();
 alert('✅ Postings sorted by date');
@@ -928,6 +914,7 @@ alert('✅ Postings sorted by date');
 
 function savePostings() {
 if (!currentInternForEditor) return;
+
 localStorage.setItem('internData', JSON.stringify(interns));
 closeModal('postingEditorModal');
 renderInterns();
@@ -939,21 +926,26 @@ if (interns.length === 0) {
 alert('⚠️ Please add interns first');
 return;
 }
+
 const internsToGenerate = interns.filter(i => !i.rotationGenerated || i.postings.length === 0);
+
 if (internsToGenerate.length === 0) {
 alert('ℹ️ All interns already have rotations generated!\n\nTo regenerate, delete their postings using the Edit Postings button.');
 return;
 }
+
 if (!confirm(`🔄 Generate automatic rotations for ${internsToGenerate.length} interns?\n\n✓ Until Dec 2025: In-house only\n✓ From Jan 2026: Evenly distributed (in-house + external)\n✓ Respects excluded departments\n✓ Handles partial completions\n✓ Uses "Resume From" date if set\n\nProceed?`)) {
 return;
 }
 
 const JAN_2026 = new Date('2026-01-01');
-
 let generatedCount = 0;
+
 internsToGenerate.forEach((intern, internIndex) => {
 // Use resumeFromDate if set, otherwise use startDate
-const effectiveStartDate = intern.resumeFromDate ? new Date(intern.resumeFromDate) : new Date(intern.startDate);
+const effectiveStartDate = intern.resumeFromDate ? 
+new Date(intern.resumeFromDate) : 
+new Date(intern.startDate);
 
 if (isNaN(effectiveStartDate.getTime())) {
 alert(`⚠️ Invalid date for ${intern.name}`);
@@ -965,47 +957,62 @@ console.log(`Generating for ${intern.name}: Start=${intern.startDate}, Resume=${
 let currentDate = new Date(effectiveStartDate);
 intern.postings = [];
 
-// Get available departments (not excluded)
 const excludedDepts = intern.excludedDepts || [];
 const partialDepts = intern.partialDepts || {};
 
-// Separate in-house and external
-const inHouseDepts = departments.filter(d => d.inHouse && !excludedDepts.includes(d.name));
-const externalDepts = departments.filter(d => !d.inHouse && !excludedDepts.includes(d.name));
+// Calculate how many days are already completed
+const completedDays = intern.completedDays || 0;
+const remainingDays = 365 - completedDays;
+        
+console.log(`Completed: ${completedDays} days, Remaining: ${remainingDays} days`);
+
+// Filter available departments
+const inHouseDepts = departments.filter(d => {
+if (!d.inHouse) return false;
+if (excludedDepts.includes(d.name)) return false;
+            
+// Check if partially completed
+const partialDays = partialDepts[d.name] || 0;
+const remainingDeptDays = d.days - partialDays;
+            
+return remainingDeptDays > 0;
+});
+
+const externalDepts = departments.filter(d => {
+if (d.inHouse) return false;
+if (excludedDepts.includes(d.name)) return false;
+            
+const partialDays = partialDepts[d.name] || 0;
+const remainingDeptDays = d.days - partialDays;
+            
+return remainingDeptDays > 0;
+});
+
+console.log(`Available: ${inHouseDepts.length} in-house, ${externalDepts.length} external`);
 
 // PHASE 1: Until end of December 2025 - Only in-house
-console.log(`Phase 1: In-house only until end of Dec 2025`);
 const shuffledInHouse = shuffleWithOffset([...inHouseDepts], internIndex);
-let phase1Complete = false;
-
+        
 for (let dept of shuffledInHouse) {
-// Check if this posting would extend into 2026
-const testEndDate = new Date(currentDate);
+if (currentDate >= JAN_2026) break;
+
 const completedDays = partialDepts[dept.name] || 0;
 let daysToSchedule = dept.days - completedDays;
+
 if (daysToSchedule <= 0) continue;
 
+// Check if posting would extend into 2026
+const testEndDate = new Date(currentDate);
 testEndDate.setDate(testEndDate.getDate() + daysToSchedule - 1);
 
-// If we've reached or passed Jan 2026, stop Phase 1
-if (currentDate >= JAN_2026) {
-phase1Complete = true;
-break;
-}
-
-// If this posting would go into 2026, check if we should schedule it
 if (testEndDate >= JAN_2026) {
 // Calculate days remaining in 2025
 const dec31_2025 = new Date('2025-12-31');
 const daysUntilNewYear = Math.ceil((dec31_2025 - currentDate) / (1000 * 60 * 60 * 24)) + 1;
 
-// Only schedule if we have at least 7 days left in 2025
 if (daysUntilNewYear >= 7) {
-// Schedule only until end of 2025
 daysToSchedule = Math.min(daysToSchedule, daysUntilNewYear);
 } else {
-// Too close to new year, move to Phase 2
-phase1Complete = true;
 break;
 }
 }
@@ -1025,24 +1032,21 @@ days: daysToSchedule
 currentDate.setDate(currentDate.getDate() + daysToSchedule);
 }
 
-console.log(`Phase 1 complete. Current date: ${currentDate.toISOString().split('T')[0]}`);
-
-// PHASE 2: From Jan 2026 onwards - Mix in-house and external with even distribution
-console.log(`Phase 2: Even distribution of in-house and external from Jan 2026`);
-
-// Get remaining in-house departments
+// PHASE 2: From Jan 2026 onwards - Mix in-house and external
 const remainingInHouse = shuffledInHouse.filter(dept => {
 const alreadyScheduled = intern.postings.some(p => p.department === dept.name);
 const completedDays = partialDepts[dept.name] || 0;
-const remainingDays = dept.days - completedDays;
-return !alreadyScheduled && remainingDays > 0;
+const scheduledDays = alreadyScheduled ? 
+intern.postings.find(p => p.department === dept.name).days : 0;
+const remainingDays = dept.days - completedDays - scheduledDays;
+            
+return remainingDays > 0;
 });
 
-// Interleave in-house and external departments for even distribution
 const shuffledExternal = shuffleWithOffset([...externalDepts], internIndex);
 const phase2Depts = [];
 
-// Create interleaved pattern: in-house, external, in-house, external...
+// Interleave in-house and external
 const maxLength = Math.max(remainingInHouse.length, shuffledExternal.length);
 for (let i = 0; i < maxLength; i++) {
 if (i < remainingInHouse.length) phase2Depts.push(remainingInHouse[i]);
@@ -1050,20 +1054,13 @@ if (i < shuffledExternal.length) phase2Depts.push(shuffledExternal[i]);
 }
 
 phase2Depts.forEach(dept => {
-let daysToSchedule = dept.days;
 const completedDays = partialDepts[dept.name] || 0;
-if (completedDays > 0) {
-daysToSchedule = dept.days - completedDays;
-if (daysToSchedule <= 0) return;
-}
-
-// Check if this department was partially scheduled in Phase 1
 const existingPosting = intern.postings.find(p => p.department === dept.name);
-if (existingPosting) {
-// Calculate remaining days
-daysToSchedule = dept.days - existingPosting.days - completedDays;
+const scheduledDays = existingPosting ? existingPosting.days : 0;
+            
+let daysToSchedule = dept.days - completedDays - scheduledDays;
+
 if (daysToSchedule <= 0) return;
-}
 
 const fromDate = new Date(currentDate);
 const toDate = new Date(currentDate);
@@ -1083,14 +1080,25 @@ currentDate.setDate(currentDate.getDate() + daysToSchedule);
 intern.totalDays = intern.postings.reduce((sum, p) => sum + p.days, 0);
 intern.rotationGenerated = true;
 generatedCount++;
-console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days, Ends: ${currentDate.toISOString().split('T')[0]}`);
+
+console.log(`✓ ${intern.name}: ${intern.postings.length} postings, ${intern.totalDays} days total`);
 });
 
 localStorage.setItem('internData', JSON.stringify(interns));
 interns = JSON.parse(localStorage.getItem('internData') || '[]');
+
 updateStats();
 renderInterns();
-alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!\n\n📊 Features:\n• Until Dec 2025: In-house only\n• From Jan 2026: Evenly distributed\n• Excluded completed departments\n• Handled partial completions\n• Used "Resume From" dates where set\n• All 19 departments covered`);
+
+alert(`✅ SUCCESS! Generated rotations for ${generatedCount} interns!
+
+📊 Features:
+• Until Dec 2025: In-house only
+• From Jan 2026: Evenly distributed
+• Excluded completed departments
+• Handled partial completions
+• Used "Resume From" dates where set
+• All 19 departments covered`);
 }
 
 function shuffleWithOffset(array, offset) {
@@ -1101,20 +1109,23 @@ return [...result.slice(rotate), ...result.slice(0, rotate)];
 
 function renderInterns() {
 const search = document.getElementById('searchIntern').value.toLowerCase();
-const filtered = interns.filter(i =>
+const filtered = interns.filter(i => 
 i.name.toLowerCase().includes(search) || i.regNo.toLowerCase().includes(search)
 );
+
 document.getElementById('internList').innerHTML = filtered.map(intern => {
 const progress = (intern.totalDays / 365) * 100;
 const hasConfig = intern.excludedDepts && (intern.excludedDepts.length > 0 || Object.keys(intern.partialDepts || {}).length > 0);
 const hasResumeDate = intern.resumeFromDate;
 const internIdSafe = String(intern.id).replace(/'/g, "\\'");
+
 return `
 <div class="intern-card">
 <div class="intern-name">${intern.name}</div>
 <div style="color: #7f8c8d; margin-bottom: 10px;">
 Reg: ${intern.regNo} | Start: ${new Date(intern.startDate).toLocaleDateString('en-GB')}
 ${hasResumeDate ? `<br>📅 Resume from: ${new Date(intern.resumeFromDate).toLocaleDateString('en-GB')}` : ''}
+${hasConfig ? `<br>✅ Completed: ${intern.completedDays || 0} days` : ''}
 </div>
 ${hasConfig ? '<div style="color: #27ae60; font-size: 0.85em; margin-bottom: 5px;">⚙️ Custom configuration applied</div>' : ''}
 <div class="progress-bar">
@@ -1186,6 +1197,7 @@ if (!intern || !intern.postings.length) {
 alert('⚠️ No postings found');
 return;
 }
+
 const html = generateChartHTML([intern], false);
 downloadFile(html, `Individual_Chart_${intern.name.replace(/\s/g, '_')}.html`);
 alert('✅ Chart downloaded!');
@@ -1196,6 +1208,7 @@ if (!interns.length || !interns.some(i => i.postings.length)) {
 alert('⚠️ No interns with postings found');
 return;
 }
+
 const html = generateChartHTML(interns.filter(i => i.postings.length), true);
 downloadFile(html, `Master_Chart_${new Date().toISOString().split('T')[0]}.html`);
 alert('✅ Master chart generated!');
@@ -1274,6 +1287,7 @@ if (!intern || !intern.postings.length) {
 alert('⚠️ No postings found');
 return;
 }
+
 const html = generateCalendarHTML([intern]);
 downloadFile(html, `Calendar_${intern.name.replace(/\s/g, '_')}.html`);
 alert('✅ Calendar generated!');
@@ -1284,6 +1298,7 @@ if (!interns.length || !interns.some(i => i.postings.length)) {
 alert('⚠️ No interns with postings');
 return;
 }
+
 const html = generateCalendarHTML(interns.filter(i => i.postings.length));
 downloadFile(html, `Master_Calendar_${new Date().toISOString().split('T')[0]}.html`);
 alert('✅ Master calendar generated!');
@@ -1335,9 +1350,11 @@ const code = dept ? dept.code : 'N/A';
 const color = colors[pi % colors.length];
 const fromDay = start.getMonth() === mi && start.getFullYear() === year ? start.getDate() : 1;
 const toDay = end.getMonth() === mi && end.getFullYear() === year ? end.getDate() : monthEnd.getDate();
+
 cellContent += `<div class="posting-cell" style="background: ${color};"><strong>${code}</strong><br>${fromDay}-${toDay}</div>`;
 }
 });
+
 html += `<td style="height: 100px;">${cellContent || '-'}</td>`;
 });
 
@@ -1364,7 +1381,6 @@ return;
 }
 
 currentInternForDeptLetter = intern;
-
 document.getElementById('departmentLetterInternInfo').innerHTML = `
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
 <div><strong>Intern Name:</strong> ${intern.name}</div>
@@ -1376,6 +1392,7 @@ document.getElementById('departmentLetterInternInfo').innerHTML = `
 
 const select = document.getElementById('departmentLetterSelect');
 select.innerHTML = '<option value="">-- Select a Department --</option>';
+
 intern.postings.forEach((posting, index) => {
 const dept = departments.find(d => d.name === posting.department);
 const option = document.createElement('option');
@@ -1429,6 +1446,7 @@ return;
 const posting = currentInternForDeptLetter.postings[selectedIndex];
 const html = generateDepartmentLetterHTML(currentInternForDeptLetter, posting);
 const filename = `${posting.department.replace(/\s+/g, '_')}_Letter_${currentInternForDeptLetter.name.replace(/\s/g, '_')}.html`;
+
 downloadFile(html, filename);
 alert(`✅ Department letter generated!`);
 closeModal('departmentLetterModal');
@@ -1452,7 +1470,6 @@ body { font-family: 'Times New Roman', serif; padding: 40px; line-height: 1.6; }
 .signature { margin-top: 60px; }
 @media print { body { padding: 20px; } }
 </style></head><body>
-
 <div class="letterhead">
 <h1>JAIN AGM AYURVEDIC MEDICAL COLLEGE & HOSPITAL</h1>
 <p>VARUR, KALABURAGI DISTRICT, KARNATAKA</p>
@@ -1520,7 +1537,6 @@ ${posting.days} days
 </ol>
 
 <p style="margin-top: 20px;">This posting is an integral part of your internship training program. Your active participation and dedication will ensure maximum learning and skill development.</p>
-
 <p style="margin-top: 15px;">For any queries, please contact the Medical Superintendent Office.</p>
 </div>
 
@@ -1539,7 +1555,6 @@ ${posting.days} days
 <p style="font-weight: bold;">OFFICIAL POSTING ORDER</p>
 <p style="margin-top: 10px;">Posting Duration: ${new Date(posting.fromDate).toLocaleDateString('en-GB')} to ${new Date(posting.toDate).toLocaleDateString('en-GB')} (${posting.days} days)</p>
 </div>
-
 </body></html>`;
 
 return html;
@@ -1559,9 +1574,10 @@ function exportAllData() {
 const data = {
 interns,
 exported: new Date().toISOString(),
-version: '3.0',
+version: '3.1',
 college: 'JAIN AGM AYURVEDIC MEDICAL COLLEGE & HOSPITAL, VARUR'
 };
+
 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
 const url = URL.createObjectURL(blob);
 const a = document.createElement('a');
@@ -1579,6 +1595,7 @@ document.getElementById('importFile').click();
 function handleImport(event) {
 const file = event.target.files[0];
 if (!file) return;
+
 const reader = new FileReader();
 reader.onload = function(e) {
 try {
@@ -1627,14 +1644,18 @@ console.log('Departments:', departments.length);
 console.log('In-house depts:', departments.filter(d => d.inHouse).length);
 console.log('External depts:', departments.filter(d => !d.inHouse).length);
 console.log('\nIntern details:');
+
 interns.forEach((intern, i) => {
 console.log(`\n${i+1}. ${intern.name} (${intern.regNo})`);
-console.log(`   Start Date: ${intern.startDate}`);
-console.log(`   Postings: ${intern.postings.length}`);
-console.log(`   Total Days: ${intern.totalDays}`);
-console.log(`   Excluded: ${intern.excludedDepts ? intern.excludedDepts.length : 0}`);
-console.log(`   Partial: ${intern.partialDepts ? Object.keys(intern.partialDepts).length : 0}`);
+console.log(`  Start Date: ${intern.startDate}`);
+console.log(`  Resume Date: ${intern.resumeFromDate || 'N/A'}`);
+console.log(`  Completed Days: ${intern.completedDays || 0}`);
+console.log(`  Postings: ${intern.postings.length}`);
+console.log(`  Total Days: ${intern.totalDays}`);
+console.log(`  Excluded: ${intern.excludedDepts ? intern.excludedDepts.length : 0}`);
+console.log(`  Partial: ${intern.partialDepts ? Object.keys(intern.partialDepts).length : 0}`);
 });
+
 alert(`Debug info logged to console (Press F12)\n\nSummary:\n• Total Interns: ${interns.length}\n• Departments: ${departments.length}\n• In-house: ${departments.filter(d => d.inHouse).length}\n• External: ${departments.filter(d => !d.inHouse).length}`);
 }
 
