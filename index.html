@@ -672,11 +672,44 @@ partialDepts[input.dataset.dept] = days;
 });
 
 const resumeDateElement = document.getElementById('resumeFromDate');
-const resumeFromDate = resumeDateElement ? resumeDateElement.value : null;
+let resumeFromDate = resumeDateElement ? resumeDateElement.value : null;
+
+// OPTION A: Auto-calculate resume date based on excluded departments
+if (excludedDepts.length > 0 || Object.keys(partialDepts).length > 0) {
+let totalCompletedDays = 0;
+
+// Add days from fully excluded departments
+excludedDepts.forEach(deptName => {
+const dept = departments.find(d => d.name === deptName);
+if (dept) {
+totalCompletedDays += dept.days;
+}
+});
+
+// Add days from partially completed departments
+Object.keys(partialDepts).forEach(deptName => {
+totalCompletedDays += partialDepts[deptName];
+});
+
+console.log('Total completed days:', totalCompletedDays);
+
+// Calculate resume date = start date + completed days
+const startDate = new Date(currentInternForConfig.startDate);
+const calculatedResumeDate = new Date(startDate);
+calculatedResumeDate.setDate(calculatedResumeDate.getDate() + totalCompletedDays);
+
+// Use calculated date if no manual date is set, otherwise use manual date
+if (!resumeFromDate) {
+resumeFromDate = calculatedResumeDate.toISOString().split('T')[0];
+console.log('Auto-calculated resume date:', resumeFromDate);
+} else {
+console.log('Using manually set resume date:', resumeFromDate);
+}
+}
 
 console.log('Excluded departments:', excludedDepts);
 console.log('Partial departments:', partialDepts);
-console.log('Resume from date:', resumeFromDate);
+console.log('Final resume from date:', resumeFromDate);
 console.log('Resume date element found:', !!resumeDateElement);
 
 // Update the intern object in the array
@@ -710,7 +743,13 @@ console.log('Reloaded from localStorage');
 
 closeModal('deptConfigModal');
 renderInterns();
-alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments${resumeFromDate ? '\nResume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') : ''}`);
+
+const totalDays = excludedDepts.reduce((sum, deptName) => {
+const dept = departments.find(d => d.name === deptName);
+return sum + (dept ? dept.days : 0);
+}, 0) + Object.values(partialDepts).reduce((sum, days) => sum + days, 0);
+
+alert(`✅ Configuration saved!\n\nExcluded: ${excludedDepts.length} departments\nPartial completion: ${Object.keys(partialDepts).length} departments\nTotal completed days: ${totalDays}\n${resumeFromDate ? 'Resume from: ' + new Date(resumeFromDate).toLocaleDateString('en-GB') + ' (auto-calculated)' : ''}`);
 }
 
 function showPostingEditor(internId) {
